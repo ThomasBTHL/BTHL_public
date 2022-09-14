@@ -32,7 +32,7 @@ length = 'Pitches' # Pitches or Innings
 Polyfit = 1
 fs_opti = 120
 fs_EMG = 2000
-inning_plot = True
+inning_plot = False
 side = 'right'
 fignum = int(pitcher[2:])
 
@@ -255,11 +255,22 @@ for Inning in Innings:
             """
             Time syncing Moment data for smooth overlayed plots and variability plots
             """
+            # Determine Ball release
+            hand_vNorm = [np.linalg.norm(model['hand']['vSeg'][:,i]) for i in range(len(model['hand']['vSeg'][0,:]))]
+            BR_index = np.nanargmax(hand_vNorm) + 1
+
+            print('Ball release time is')
+            print((BR_index)/120)
+
             # Determine MER index
             [pitch_MER, pitch_index_MER] = f.MER_event(model)
             pitch_MER_s = pitch_index_MER / 120
             Inning_MER_s_events.append(pitch_MER_s)
+
+            print('MER time is')
             print(pitch_MER_s)
+
+
 
             # Determine max abduction moment [0] correlation index
             max_M_index = np.nanargmax(seg_M_joint['forearm'][0,:])
@@ -299,12 +310,10 @@ for Inning in Innings:
             separation_time, peak_ang_velocity, pelvis_index,thorax_index, pelvis_peak, thorax_peak = f.separation_time_pp(model, fs_opti, analytical=0)
 
             plt.figure(20 + fignum)
-            plt.title('Thorax')
-            plt.plot(model['thorax']['avSegNorm'])
-
-            plt.figure(40 + fignum)
-            plt.title('Pelvis')
-            plt.plot(model['pelvis']['avSegNorm'])
+            plt.title('Thorax and Pelvis Angular Velocities')
+            plt.plot(model['thorax']['avSegNorm'], label = 'Thorax')
+            plt.plot(model['pelvis']['avSegNorm'], label = 'Pelvis')
+            plt.legend()
 
 
             """
@@ -312,81 +321,80 @@ for Inning in Innings:
             """
             l = 1
             plt.figure(fignum)
-            if inning_plot == True:
-                for marker in markers:
-                    plt.subplot(3,2,l)
-                    plt.title(pitcher+' '+markers[l-1])
-                    EMG_timeline = synced_EMG_data[marker][pitch_number][:,1] - Abd_plot_delay
-                    if marker == 'ACC':
-                        plt.plot(EMG_timeline, (-synced_EMG_data['ACC_filtered'][pitch_number][:, 0]), label=pitch_number)
-                    else:
-                        for activation in Muscle_Activations[marker][pitch_number]:
-                            plt.vlines(EMG_timeline[activation],ymin = 0, ymax = np.nanmax(synced_EMG_data[marker][pitch_number][:,0]), linestyles= '--', colors= colorspallete[j])
-                        plt.plot(EMG_timeline,synced_EMG_data[marker][pitch_number][:,0],label = pitch_number, color = colorspallete[j])
-                    plt.xlim(0.3,1)
-                    plt.vlines(pitch_MER_s,ymin = 0, ymax = np.nanmax(synced_EMG_data[marker][pitch_number][:,0]), linestyles= '--', colors= ['k'])
-                    # plt.legend()
-                    l += 1
+            for marker in markers:
+                plt.subplot(3,2,l)
+                plt.title(pitcher+' '+markers[l-1])
+                EMG_timeline = synced_EMG_data[marker][pitch_number][:,1] - Abd_plot_delay
+                if marker == 'ACC':
+                    plt.plot(EMG_timeline, (-synced_EMG_data['ACC_filtered'][pitch_number][:, 0]), label=pitch_number)
+                else:
+                    for activation in Muscle_Activations[marker][pitch_number]:
+                        plt.vlines(EMG_timeline[activation],ymin = 0, ymax = np.nanmax(synced_EMG_data[marker][pitch_number][:,0]), linestyles= '--', colors= colorspallete[j])
+                    plt.plot(EMG_timeline,synced_EMG_data[marker][pitch_number][:,0],label = pitch_number, color = colorspallete[j])
+                plt.xlim(0.3,1)
+                plt.vlines(pitch_MER_s,ymin = 0, ymax = np.nanmax(synced_EMG_data[marker][pitch_number][:,0]), linestyles= '--', colors= ['k'])
+                # plt.legend()
+                l += 1
 
-                if l == 5:
-                    plt.subplot(3, 2, l)
-                    plt.title('gradient of PX_array')
-                    plt.plot((seg_M_joint['time_line'] - Abd_plot_delay), PX_array,
-                             label=pitch_number)
+            if l == 5:
+                plt.subplot(3, 2, l)
+                plt.title('gradient of PX_array')
+                plt.plot((seg_M_joint['time_line'] - Abd_plot_delay), PX_array,
+                         label=pitch_number)
+                plt.xlim(0.3, 1)
+                plt.vlines(pitch_MER_s, ymin=0, ymax=np.nanmax(PX_array),
+                           linestyles='--',
+                           colors=['k'])
+                # plt.legend()
+                l += 1
+
+            if l == 6:
+                plt.subplot(3, 2, l)
+                plt.title('Abduction moment')
+                plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),seg_M_joint['forearm'][0,:],label = pitch_number)
+                plt.xlim(0.3, 1)
+                plt.vlines(pitch_MER_s, ymin=0, ymax=np.nanmax(seg_M_joint['forearm'][0,:]), linestyles='--',
+                           colors=['k'])
+                # plt.legend()
+
+
+                plt.figure(60 + fignum)
+                if inning_plot == True:
+                    plt.subplot(4, 1, 1)
                     plt.xlim(0.3, 1)
-                    plt.vlines(pitch_MER_s, ymin=0, ymax=np.nanmax(PX_array),
-                               linestyles='--',
-                               colors=['k'])
-                    # plt.legend()
-                    l += 1
+                    plt.title(pitcher + ' Elbow flexion angles')
+                    # plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),elbow_angles[0, :])
+                    plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),Filtered_elbow_angles[0, :])
 
-                if l == 6:
-                    plt.subplot(3, 2, l)
+                    plt.subplot(4, 1, 2)
+                    plt.xlim(0.3, 1)
+                    plt.title(pitcher + ' Elbow abduction angles')
+                    # plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),elbow_angles[1, :])
+                    plt.plot((seg_M_joint['time_line'] - Abd_plot_delay), Filtered_elbow_angles[1, :])
+
+                    plt.subplot(4, 1, 3)
+                    plt.xlim(0.3, 1)
+                    plt.title(pitcher + 'SER')
+
+                    # Determine rotation matrix of the upperarm
+                    R_upperarm = model['upperarm']['gRseg']
+                    # Determine rotation matrix of the thorax
+                    R_thorax = model['thorax']['gRseg']
+                    # Euler angles humerus relative to the thorax = shoulder external rotation
+                    GH = f.euler_angles('YXY', R_upperarm, R_thorax)  # zyz
+                    SER = GH[2, :]
+                    for i in range(len(SER)):
+                        if SER[i] < -100:
+                            SER[i] = 360 + SER[i]
+
+                    SER_filtered = f.butter_lowpass_filter(SER, 12, 120, 2)
+
+                    plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),SER_filtered)
+
+                    plt.subplot(4, 1, 4)
+                    plt.xlim(0.3, 1)
                     plt.title('Abduction moment')
-                    plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),seg_M_joint['forearm'][0,:],label = pitch_number)
-                    plt.xlim(0.3, 1)
-                    plt.vlines(pitch_MER_s, ymin=0, ymax=np.nanmax(seg_M_joint['forearm'][0,:]), linestyles='--',
-                               colors=['k'])
-                    # plt.legend()
-
-
-                    plt.figure(60 + fignum)
-                    if inning_plot == True:
-                        plt.subplot(4, 1, 1)
-                        plt.xlim(0.3, 1)
-                        plt.title(pitcher + ' Elbow flexion angles')
-                        # plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),elbow_angles[0, :])
-                        plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),Filtered_elbow_angles[0, :])
-
-                        plt.subplot(4, 1, 2)
-                        plt.xlim(0.3, 1)
-                        plt.title(pitcher + ' Elbow abduction angles')
-                        # plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),elbow_angles[1, :])
-                        plt.plot((seg_M_joint['time_line'] - Abd_plot_delay), Filtered_elbow_angles[1, :])
-
-                        plt.subplot(4, 1, 3)
-                        plt.xlim(0.3, 1)
-                        plt.title(pitcher + 'SER')
-
-                        # Determine rotation matrix of the upperarm
-                        R_upperarm = model['upperarm']['gRseg']
-                        # Determine rotation matrix of the thorax
-                        R_thorax = model['thorax']['gRseg']
-                        # Euler angles humerus relative to the thorax = shoulder external rotation
-                        GH = f.euler_angles('YXY', R_upperarm, R_thorax)  # zyz
-                        SER = GH[2, :]
-                        for i in range(len(SER)):
-                            if SER[i] < -100:
-                                SER[i] = 360 + SER[i]
-
-                        SER_filtered = f.butter_lowpass_filter(SER, 12, 120, 2)
-
-                        plt.plot((seg_M_joint['time_line'] - Abd_plot_delay),SER_filtered)
-
-                        plt.subplot(4, 1, 4)
-                        plt.xlim(0.3, 1)
-                        plt.title('Abduction moment')
-                        plt.plot((seg_M_joint['time_line'] - Abd_plot_delay), seg_M_joint['forearm'][0, :],
-                                 label=pitch_number)
-            j += 1
-            plt.show()
+                    plt.plot((seg_M_joint['time_line'] - Abd_plot_delay), seg_M_joint['forearm'][0, :],
+                             label=pitch_number)
+        j += 1
+        plt.show()
