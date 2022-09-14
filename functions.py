@@ -1818,7 +1818,7 @@ def calc_upperarm(LHE, MHE, AC, side='right', sample_freq=[], circumference=29, 
     """Definition of the ISB coordination system through bony land marks on a right-handed coordination system"""
 
     # Definition of the ISB coordination system through bony land marks on a right-handed coordination system
-    origin = EJC  # Origin coincident with midpoint of the lateral and medial humeral epicondylus
+    origin = SJC  # Origin coincident with midpoint of the lateral and medial humeral epicondylus
 
     # Initialise variable
     QFP = np.array([])
@@ -3027,6 +3027,8 @@ def MER_event(model):
      relative to the thorax. The MER is the maximum value of the shoulder external rotation at the third rotating
      direction, which is the Z-direction.
     """
+    hand_vNorm = [np.linalg.norm(model['hand']['vSeg'][:, i]) for i in range(len(model['hand']['vSeg'][0, :]))]
+    BR_index = np.nanargmax(hand_vNorm) + 1
 
     # Determine rotation matrix of the upperarm
     R_upperarm = model['upperarm']['gRseg']
@@ -3042,15 +3044,16 @@ def MER_event(model):
         if SER[i] < -100:
             SER[i] = 360 + SER[i]
 
+    SER = -SER # Negative is external according to ISB
     SER = butter_lowpass_filter(SER, 12, 120, 2)
 
     # Calculate the maximum shoulder external rotation without taking the nans into account
-    MER= np.nanmax(SER)
+    MER= np.nanmax(SER[BR_index-24:BR_index])
     if (abs(MER) > 0):
         # Determine the sample where MER occurs of SER
         indexMER = int(np.array(np.where(SER==MER)))
 
-        return MER, indexMER
+        return np.abs(MER), indexMER
     else:
         return float('NaN'), float('NaN')
 
